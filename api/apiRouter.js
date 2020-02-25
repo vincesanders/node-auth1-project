@@ -12,9 +12,11 @@ router.post('/register', (req, res) => {
     } else {
         console.log(process.env.BCRYPT_ROUNDS)
         const hash = bcrypt.hashSync(req.body.password, Number(process.env.BCRYPT_ROUNDS));
+        let user = { username: req.body.username, password: hash };
 
-        users.insert({ username: req.body.username, password: hash })
+        users.insert(user)
             .then(userAdded => {
+                req.session.user = user;
                 res.status(201).json(userAdded);
             }).catch(err => {
                 res.status(500).json(err);
@@ -29,6 +31,7 @@ router.post('/login', (req, res) => {
         users.getBy({ username: req.body.username })
             .then(user => {
                 if (user && bcrypt.compareSync(req.body.password, user.password)) {
+                    req.session.user = user;
                     res.status(200).json({ message: `Welcome ${user.username}!` });
                 } else {
                     res.status(401).json({ message: 'Invalid Credentials' });
@@ -36,6 +39,20 @@ router.post('/login', (req, res) => {
             }).catch(err => {
                 res.status(500).json({ message: 'Unable to find user information.' });
             });
+    }
+});
+
+router.delete('/logout', (req, res) => {
+    if (req.session) {
+        req.session.destroy(err => {
+            if (err) {
+                res.status(500).json({ message: "Unable to logout." });
+            } else {
+                res.status(200).json({ message: 'Logout successful.' });
+            }
+        });
+    } else {
+        res.status(500).json({ message: 'You are already logged out.' });
     }
 });
 
